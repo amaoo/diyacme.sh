@@ -1,26 +1,15 @@
 #!/bin/bash
 
+webHookUrl="xxxx"
+_pwd=$(cd $(dirname "$0") && pwd)
+
+_send_to_slack() {
+  message=$1
+  curl -d "{\"text\": \"<!channel> ACME ERROR: $message \"}" -H 'Content-Type: application/text' "$webHookUrl" 1>/dev/null
+}
+
 while read line || [[ -n ${line} ]]; do
   domain=$line
-  
-  if [ "$region" = "tokyo" ]; then
-    _deploy_region="--deploy-hook aws_acm_tokyo"
-  elif [ "$region" = "virginia" ]; then
-    _deploy_region="--deploy-hook aws_acm_virginia"
-  else
-    _send_to_slack "*$domain* region error."
-    continue
-  fi
-
-  # 验证 域名 是否正确解析
-  random_file=$(cat /proc/sys/kernel/random/uuid)
-  uuid=$(cat /proc/sys/kernel/random/uuid)
-  echo "$uuid" >/data/public/.well-known/acme-challenge/"$random_file"
-  curl_res=$(curl -sL "$domain"/.well-known/acme-challenge/"$random_file")
-  rm -f /data/public/.well-known/acme-challenge/"$random_file"
-  if [ "${curl_res:0:36}" != "$uuid" ]; then
-    continue
-  fi
 
   # 申请 ssl 证书, 默认使用 zerossl
   issus_out_zero=$(/root/.acme.sh/acme.sh --issue -d "$domain" --webroot /data/public/)
@@ -37,26 +26,25 @@ while read line || [[ -n ${line} ]]; do
       continue
     fi
   fi
-
-  # 部署 ssl 证书 到 aws ACM
-  deploy_out=$(/root/.acme.sh/acme.sh --deploy -d "$domain" "$_deploy_region")
+  export DEPLOY_SSH_USER="root"
+  # export DEPLOY_SSH_SERVER="xxxx"
+  export DEPLOY_SSH_KEYFILE="filename for private key"
+  export DEPLOY_SSH_CERTFILE="filename for certificate file"
+  export DEPLOY_SSH_CAFILE="filename for intermediate CA file"
+  export DEPLOY_SSH_FULLCHAIN="filename for fullchain file"
+  export DEPLOY_SSH_REMOTE_CMD="apachectl graceful"
+  
+  # 部署 ssl 证书
+  deploy_out=$(/root/.acme.sh/acme.sh --deploy -d "$domain" ssh)
   _ret=$?
   if [ "$_ret" != "0" ]; then
-    echo "certificate deploy to acm($region) fail" >>"$_pwd"/logs/"$domain".log
+    echo "certificate deploy fail" >>"$_pwd"/logs/"$domain".log
     echo "$deploy_out" >>"$_pwd"/logs/"$domain".log
-    _send_to_slack "*$domain* SSL certificate deploy to ACM($region) fail."
+    _send_to_slack "*$domain* SSL certificate deploy fail."
     continue
   fi
 
   # 成功后删除 domain.conf 的 域名
   sed -i "/$domain/d" "$_pwd"/domain.conf
 
-  if [ "$region" = "tokyo" ]; then
-    # 更新 nlb 证书
-    /bin/bash "$_pwd"/addNlbCert.sh "$domain"
-  elif [ "$region" = "virginia" ]; then
-    # 更新 CloudFront 证书 
-    # 待定
-    :
-  fi
 done <"$_pwd"/domain.conf
