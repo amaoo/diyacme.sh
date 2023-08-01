@@ -32,7 +32,12 @@ aws_acm_virginia_deploy() {
   _debug _cfullchain "$_cfullchain"
   _debug _region "$_region"
 
-  _arn="$(_get_arn "$_cdomain" "$_region")"
+  Acm_Arn_virginia=''
+  _arn="${Acm_Arn_virginia:-$(_readdomainconf Acm_Arn_virginia)}"
+
+  if [ -z "$_arn" ]; then
+    _arn="$(_get_arn "$_cdomain" "$_region")"
+  fi
   _debug _arn "$_arn"
 
   _ssl_path="--private-key file://$_ckey --certificate file://$_ccert --certificate-chain file://$_cca"
