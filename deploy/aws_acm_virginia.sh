@@ -36,23 +36,26 @@ aws_acm_virginia_deploy() {
   _arn="${Acm_Arn_virginia:-$(_readdomainconf Acm_Arn_virginia)}"
 
   if [ -z "$_arn" ]; then
-    _arn="$(_get_arn "$_cdomain" "$_region")"
+    Le_Keylength="$(_readdomainconf Le_Keylength)"
+    _debug Le_Keylength "$Le_Keylength"
+    _info "Le_Keylength:$Le_Keylength"
+    _arn="$(_get_arn "$_cdomain" "$_region" "$Le_Keylength")"
   fi
   _debug _arn "$_arn"
 
-  _ssl_path="--private-key file://$_ckey --certificate file://$_ccert --certificate-chain file://$_cca"
+  _ssl_path="--private-key fileb://$_ckey --certificate fileb://$_ccert --certificate-chain fileb://$_cca"
 
   _import_type=''
   _import_arn=''
   _ret=''
-
+  
   if [ -z "$_arn" ]; then
     _import_type='Newimport'
-    _import_arn=$(aws acm import-certificate --region $_region "$_ssl_path")
+    _import_arn=$(aws acm import-certificate --region $_region $_ssl_path)
     _ret="$?"
   else
     _import_type='Reimport'
-    _import_arn=$(aws acm import-certificate --region $_region --certificate-arn "$_arn" "$_ssl_path")
+    _import_arn=$(aws acm import-certificate --region $_region --certificate-arn $_arn $_ssl_path)
     _ret="$?"
   fi
 
@@ -76,9 +79,17 @@ aws_acm_virginia_deploy() {
 _get_arn() {
   _page='50'
   _next=null
+  _keylength="$3"
+  _includes_option='--includes keyTypes=RSA_2048'
+
+  if _isEccKey "${_keylength}"; then
+    _includes_option='--includes keyTypes=EC_prime256v1'
+  fi
+  _debug _includes_option "$_includes_option"
+  
   while [ "$_next" ]; do
     _debug _next "$_next"
-    _listComm="aws acm list-certificates --region $2 --max-items $_page"
+    _listComm="aws acm list-certificates $_includes_option --region $2 --max-items $_page"
     if [ "$_next" == "null" ] || [ -z "$_next" ]; then
       resp=$($_listComm)
     else
