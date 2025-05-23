@@ -69,7 +69,7 @@ ali_oss_deploy() {
   if [[ "$_http_code" != "200" ]]; then
     _debug "Error: HTTP $_http_code" >&2
     _debug "Response: $_body" >&2
-    _send_notify "Error: deploy to ALI ACM fail"
+    _send_notify "ACME Error: deploy to ALI ACM fail"
     return 1
   fi
 
@@ -120,12 +120,12 @@ ali_oss_deploy() {
   if [[ "$_oss_http_code" != "200" ]]; then
     _debug "Error: HTTP $_oss_http_code" >&2
     _debug "Response: $_oss_body" >&2
-    _send_notify "Error: deploy to OSS fail"
+    _send_notify "ACME Error: deploy to OSS fail"
     return 1
   fi
 
   _info "Deploy successful. Response: $_oss_body"
-  _send_notify "Success to deploy $_cdomain to ALI OSS"
+  _send_notify "ACME Success: deploy $_cdomain to ALI OSS"
   return 0
 }
 
