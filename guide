@@ -1,0 +1,33 @@
+# 申请证书 acme.sh --issue -d [DOMAIN] --webroot /prod/[DOMAIN]/web/
+# acme.sh --issue --webroot /data/public --keylength 2048 -d xxx -d xxx
+# 默认采用 ECC 证书
+acme.sh --issue --webroot /data/public -d xxx -d xxx
+
+# zerossl 失败使用 letsencrypt
+acme.sh --issue --webroot /data/public --server letsencrypt -d
+
+# 部署到证书到 ACM
+acme.sh --deploy --deploy-hook aws_acm_tokyo -d
+acme.sh --deploy --deploy-hook aws_acm_virginia -d
+acme.sh --deploy --deploy-hook aws_acm_virginia --deploy-hook aws_acm_tokyo -d
+acme.sh --deploy --deploy-hook aws_acm_virginia --deploy-hook idcf_ssh -d
+
+# 关闭自动续签证书&吊销证书
+acme.sh --remove -d example.com [--ecc]
+acme.sh --revoke -d
+
+# 重新申请证书
+acme.sh --renew -d
+
+# 强制重新申请证书
+acme.sh --renew --force -d
+
+# rsa 和 ECDSA 同时存在, 则追加 --ecc
+acme.sh --deploy --deploy-hook aws_acm_tokyo --ecc -d
+acme.sh --remove -d example.com --ecc
+
+# 已经修改原始代码
+1. acme.sh +4693 行添加 response 处理
+   https://github.com/acmesh-official/acme.sh/issues/4933#issuecomment-1870499018
+2. 通知时只通知成功或失败的证书，不通知跳过的证书
+   注释 acme.sh +5557 ，msg_data="${_msg_data}Skipped certs:
